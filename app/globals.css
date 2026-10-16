@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  --color-cream-50: #fdfaf5;
+  --color-blush-50: #fbeee9;
+  --color-champagne-50: #faf3e6;
+  --color-champagne-100: #f3e4c8;
+  --color-champagne-200: #ecd5ad;
+  --color-champagne-300: #e6c893;
+  --color-champagne-400: #d8b476;
+  --color-champagne-500: #cba15b;
+  --color-champagne-600: #b3873f;
+  --color-champagne-700: #8f6a2f;
+  --color-champagne-800: #6e5124;
+  --color-ink: #2b241d;
+  --color-ink-muted: #7c7264;
+  --color-glass: rgba(255, 255, 255, 0.65);
+  --color-glass-border: rgba(255, 255, 255, 0.8);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-cream-50: var(--color-cream-50);
+  --color-blush-50: var(--color-blush-50);
+  --color-champagne-50: var(--color-champagne-50);
+  --color-champagne-100: var(--color-champagne-100);
+  --color-champagne-200: var(--color-champagne-200);
+  --color-champagne-300: var(--color-champagne-300);
+  --color-champagne-400: var(--color-champagne-400);
+  --color-champagne-500: var(--color-champagne-500);
+  --color-champagne-600: var(--color-champagne-600);
+  --color-champagne-700: var(--color-champagne-700);
+  --color-champagne-800: var(--color-champagne-800);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-glass: var(--color-glass);
+  --color-glass-border: var(--color-glass-border);
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
