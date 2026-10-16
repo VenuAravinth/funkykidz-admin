@@ -28,7 +28,11 @@ function authSecret(): string {
   if (process.env.NODE_ENV === "production") {
     throw new Error("AUTH_SECRET must be set in production.");
   }
-  globalForAuth.__fkDevAuthSecret ??= randomBytes(32).toString("hex");
+  if (!globalForAuth.__fkDevAuthSecret) {
+    // A throwaway key means every restart signs everyone out ("Remember me" can't work).
+    console.warn("[auth] AUTH_SECRET is not set: using a temporary key, so logins won't survive a server restart. Add AUTH_SECRET to .env (see .env.example).");
+    globalForAuth.__fkDevAuthSecret = randomBytes(32).toString("hex");
+  }
   return globalForAuth.__fkDevAuthSecret;
 }
 
