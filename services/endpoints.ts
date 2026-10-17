@@ -52,3 +52,16 @@ export const BRAND_ENDPOINTS = {
     remove: "remove",
   },
 } as const;
+
+export const USER_ENDPOINTS = {
+  folder: "users",
+  actions: {
+    list: "list",
+    create: "create",
+    update: "update",
+    setStatus: "setStatus",
+    changeRole: "changeRole",
+    resetPassword: "resetPassword",
+    signOut: "signOut",
+  },
+} as const;

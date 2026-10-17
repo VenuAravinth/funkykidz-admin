@@ -1,16 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userEditSchema, type UserEditInput } from "@/features/users/schema";
 import { FormField } from "@/components/molecules/FormField";
+import { FormAlert } from "@/components/molecules/FormAlert";
 import { SwitchField } from "@/components/molecules/SwitchField";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Button } from "@/components/atoms/Button";
 import { useAppDispatch, useAppSelector } from "@/stores/hooks";
-import { updateUser, selectUsers } from "@/stores/slices/usersSlice";
+import { updateUser } from "@/features/users/api";
+import { selectUsers } from "@/stores/slices/usersSlice";
 import { setStaffHasLogin, selectStaff } from "@/stores/slices/staffSlice";
 import { selectRoles } from "@/stores/slices/rolesSlice";
 import { staffFullName } from "@/types/staff";
@@ -22,6 +25,7 @@ export function UserEditForm({ user }: { user: User }) {
   const roles = useAppSelector(selectRoles);
   const allStaff = useAppSelector(selectStaff);
   const users = useAppSelector(selectUsers);
+  const [error, setError] = useState<string | null>(null);
 
   const linkedStaffIds = new Set(users.filter((u) => u.id !== user.id).map((u) => u.staffId).filter(Boolean));
   const availableStaff = allStaff.filter((s) => !s.hasLogin && !linkedStaffIds.has(s.id));
@@ -35,15 +39,21 @@ export function UserEditForm({ user }: { user: User }) {
     resolver: zodResolver(userEditSchema),
     defaultValues: {
       username: user.username,
-      email: user.email ?? "",
+      email: user.email,
       staffId: user.staffId ?? "",
       roleId: user.roleId,
       status: user.status,
     },
   });
 
-  const onSubmit = handleSubmit((input) => {
-    dispatch(updateUser({ id: user.id, input }));
+  const onSubmit = handleSubmit(async (input) => {
+    setError(null);
+    try {
+      await dispatch(updateUser({ id: user.id, input })).unwrap();
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Couldn't update the user. Please try again.");
+      return;
+    }
     if (input.staffId && input.staffId !== user.staffId) {
       dispatch(setStaffHasLogin({ id: input.staffId, hasLogin: true }));
     }
@@ -55,12 +65,13 @@ export function UserEditForm({ user }: { user: User }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+      {error && <FormAlert variant="error">{error}</FormAlert>}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <FormField id="username" label="Username" error={errors.username?.message} required>
           <Input id="username" hasError={!!errors.username} {...register("username")} />
         </FormField>
 
-        <FormField id="email" label="Email" error={errors.email?.message}>
+        <FormField id="email" label="Email" error={errors.email?.message} required>
           <Input id="email" type="email" hasError={!!errors.email} {...register("email")} />
         </FormField>
 

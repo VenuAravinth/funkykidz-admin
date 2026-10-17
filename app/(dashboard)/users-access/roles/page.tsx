@@ -13,13 +13,13 @@ import { RoleFormModal } from "@/components/organisms/RoleFormModal";
 import { PERMISSION_CATALOG } from "@/lib/dummy-data/roles";
 import { useAppDispatch, useAppSelector } from "@/stores/hooks";
 import { deleteRole, selectRoles, setRoleStatus } from "@/stores/slices/rolesSlice";
-import { selectUsers } from "@/stores/slices/usersSlice";
+import { useUsers } from "@/features/users/hooks";
 import type { Role } from "@/types/role";
 
 export default function RolesPage() {
   const dispatch = useAppDispatch();
   const roles = useAppSelector(selectRoles);
-  const users = useAppSelector(selectUsers);
+  const { users } = useUsers();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Role | undefined>(undefined);
 

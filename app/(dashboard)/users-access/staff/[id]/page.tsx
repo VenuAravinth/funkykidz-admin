@@ -10,13 +10,13 @@ import { StatusBadge } from "@/components/molecules/StatusBadge";
 import { formatCurrency } from "@/lib/format";
 import { useAppSelector } from "@/stores/hooks";
 import { selectStaffById } from "@/stores/slices/staffSlice";
-import { selectUsers } from "@/stores/slices/usersSlice";
+import { useUsers } from "@/features/users/hooks";
 import { staffFullName } from "@/types/staff";
 
 export default function StaffDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const staff = useAppSelector((state) => selectStaffById(state, id));
-  const users = useAppSelector(selectUsers);
+  const { users } = useUsers();
   const linkedUser = staff ? users.find((u) => u.staffId === staff.id) : undefined;
 
   if (!staff) {

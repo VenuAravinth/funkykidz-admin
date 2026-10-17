@@ -7,24 +7,28 @@ import {
   HiOutlineUsers,
   HiOutlineCheckCircle,
   HiOutlineNoSymbol,
-  HiOutlineSignal,
+  HiOutlineLockClosed,
 } from "react-icons/hi2";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { SearchInput } from "@/components/molecules/SearchInput";
+import { FormAlert } from "@/components/molecules/FormAlert";
 import { StatTile } from "@/components/molecules/StatTile";
 import { UserStatusSwitch } from "@/components/organisms/UserStatusSwitch";
 import { Select } from "@/components/atoms/Select";
 import { Button } from "@/components/atoms/Button";
 import { Table, TableHead, TableBody, TableRow, Th, Td, TableEmpty } from "@/components/atoms/Table";
 import { timeAgo } from "@/lib/format";
-import { useAppSelector } from "@/stores/hooks";
-import { selectUsers } from "@/stores/slices/usersSlice";
+import { useAppDispatch, useAppSelector } from "@/stores/hooks";
+import { useUsers } from "@/features/users/hooks";
+import { fetchUsers } from "@/features/users/api";
 import { selectRoles } from "@/stores/slices/rolesSlice";
 import { selectStaff } from "@/stores/slices/staffSlice";
 import { staffFullName } from "@/types/staff";
 
 export default function UsersPage() {
-  const users = useAppSelector(selectUsers);
+  const dispatch = useAppDispatch();
+  const { users, error: loadError, isLoading } = useUsers();
+  const [actionError, setActionError] = useState<string | null>(null);
   const roles = useAppSelector(selectRoles);
   const staff = useAppSelector(selectStaff);
 
@@ -38,13 +42,13 @@ export default function UsersPage() {
   const total = users.length;
   const active = users.filter((u) => u.status === "active").length;
   const inactive = users.filter((u) => u.status === "inactive").length;
-  const online = users.filter((u) => u.isOnline).length;
+  const mfaEnabled = users.filter((u) => u.mfaEnabled).length;
 
   const filtered = users.filter((u) => {
     const matchesQuery =
       !query ||
       u.username.toLowerCase().includes(query.toLowerCase()) ||
-      (u.email ?? "").toLowerCase().includes(query.toLowerCase());
+      u.email.toLowerCase().includes(query.toLowerCase());
     const matchesRole = !roleFilter || u.roleId === roleFilter;
     const matchesStatus = !statusFilter || u.status === statusFilter;
     return matchesQuery && matchesRole && matchesStatus;
@@ -89,8 +93,19 @@ export default function UsersPage() {
         <StatTile label="Total Users" value={String(total)} icon={<HiOutlineUsers className="h-5 w-5" />} tone="champagne" />
         <StatTile label="Active Users" value={String(active)} icon={<HiOutlineCheckCircle className="h-5 w-5" />} tone="emerald" />
         <StatTile label="Inactive Users" value={String(inactive)} icon={<HiOutlineNoSymbol className="h-5 w-5" />} tone="rose" />
-        <StatTile label="Online Now" value={String(online)} icon={<HiOutlineSignal className="h-5 w-5" />} tone="sky" />
+        <StatTile label="2FA Enabled" value={String(mfaEnabled)} icon={<HiOutlineLockClosed className="h-5 w-5" />} tone="sky" />
       </div>
+
+      {(actionError || loadError) && (
+        <FormAlert variant="error" className="mb-4">
+          {actionError ?? loadError}{" "}
+          {loadError && !actionError && (
+            <button type="button" className="underline" onClick={() => dispatch(fetchUsers())}>
+              Retry
+            </button>
+          )}
+        </FormAlert>
+      )}
 
       <Table>
         <TableHead>
@@ -104,7 +119,12 @@ export default function UsersPage() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {filtered.length === 0 && <TableEmpty colSpan={6} message="No users match your filters." />}
+          {filtered.length === 0 && (
+            <TableEmpty
+              colSpan={6}
+              message={isLoading ? "Loading users…" : users.length ? "No users match your filters." : "No users yet. Add one to get started."}
+            />
+          )}
           {filtered.map((u) => {
             const role = roleById.get(u.roleId);
             const staffMember = u.staffId ? staffById.get(u.staffId) : undefined;
@@ -114,19 +134,19 @@ export default function UsersPage() {
                   <Link href={`/users-access/users/${u.id}`} className="font-medium text-ink hover:text-champagne-700">
                     {u.username}
                   </Link>
-                  {u.isOnline && (
+                  {u.mfaEnabled && (
                     <span className="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
+                      <HiOutlineLockClosed className="h-3.5 w-3.5" /> 2FA
                     </span>
                   )}
-                  <div className="text-xs text-ink-muted">{u.email ?? "—"}</div>
+                  <div className="text-xs text-ink-muted">{u.email}</div>
                 </Td>
                 <Td>{u.username}</Td>
                 <Td>{role?.name ?? "—"}</Td>
                 <Td>{staffMember ? staffFullName(staffMember) : "—"}</Td>
                 <Td>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : "Never"}</Td>
                 <Td>
-                  <UserStatusSwitch user={u} />
+                  <UserStatusSwitch user={u} onError={setActionError} />
                 </Td>
               </TableRow>
             );

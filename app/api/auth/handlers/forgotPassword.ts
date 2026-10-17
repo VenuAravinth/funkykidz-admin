@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { forgotPasswordSchema } from "@/features/auth/schema";
-import { findUserByEmail } from "@/lib/mockUserStore";
 
-const GENERIC_MESSAGE = "If an account exists for that email, a reset link has been sent.";
+const GENERIC_MESSAGE = "Passwords are reset by your administrator. Ask them to set a new one for you in User Management.";
 
 export async function handleForgotPassword(body: unknown) {
   const parsed = forgotPasswordSchema.safeParse(body);
@@ -13,8 +12,6 @@ export async function handleForgotPassword(body: unknown) {
       { status: 400 },
     );
   }
-
-  findUserByEmail(parsed.data.email);
 
   return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
 }

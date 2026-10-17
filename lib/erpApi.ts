@@ -13,18 +13,20 @@ export class ErpApiError extends Error {
 }
 
 interface ErpRequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   query?: Record<string, string | number | undefined>;
   body?: unknown;
   actor?: string;
 }
 
 export async function erpRequest<T>(path: string, { method = "GET", query, body, actor }: ErpRequestOptions = {}): Promise<T> {
-  const baseUrl = process.env.ERP_API_URL?.trim().replace(/\/+$/, "");
+  const serverUrl = process.env.ERP_API_URL?.trim().replace(/\/+$/, "");
   const apiKey = process.env.ERP_API_KEY?.trim();
-  if (!baseUrl || !apiKey) {
+  if (!serverUrl || !apiKey) {
     throw new ErpNotConfiguredError("The ERP backend isn't configured. Set ERP_API_URL and ERP_API_KEY in .env.");
   }
+  // Accept the server address with or without the /api/v1 prefix every ERP route lives under.
+  const baseUrl = serverUrl.replace(/(\/api\/v1)?$/, "/api/v1");
 
   const url = new URL(`${baseUrl}${path}`);
   for (const [key, value] of Object.entries(query ?? {})) {
@@ -49,8 +51,8 @@ export async function erpRequest<T>(path: string, { method = "GET", query, body,
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const error = (data as { error?: { message?: string; details?: unknown } } | null)?.error;
-    if (res.status === 401) throw new ErpApiError(502, "The ERP backend rejected the API key. Check ERP_API_KEY.");
+    const error = (data as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+    if (res.status === 401 && error?.code === "UNAUTHORIZED") throw new ErpApiError(502, "The ERP backend rejected the API key. Check ERP_API_KEY.");
     throw new ErpApiError(res.status, error?.message ?? `The ERP backend returned an error (${res.status}).`, error?.details);
   }
   return data as T;

@@ -1,20 +1,32 @@
 "use client";
 
 import { StatusSwitch } from "@/components/molecules/StatusSwitch";
-import { useAppDispatch } from "@/stores/hooks";
-import { setUserStatus } from "@/stores/slices/usersSlice";
+import { useAppDispatch, useAppSelector } from "@/stores/hooks";
+import { selectAuthUser } from "@/stores/slices/authSlice";
+import { setUserStatus } from "@/features/users/api";
 import { addActivityLog } from "@/stores/slices/activityLogsSlice";
 import type { User } from "@/types/user";
 
-export function UserStatusSwitch({ user }: { user: User }) {
-  const dispatch = useAppDispatch();
+export interface UserStatusSwitchProps {
+  user: User;
+  onError?: (message: string) => void;
+}
 
-  const toggle = (active: boolean) => {
-    dispatch(setUserStatus({ id: user.id, status: active ? "active" : "inactive" }));
+export function UserStatusSwitch({ user, onError }: UserStatusSwitchProps) {
+  const dispatch = useAppDispatch();
+  const me = useAppSelector(selectAuthUser);
+
+  const toggle = async (active: boolean) => {
+    try {
+      await dispatch(setUserStatus({ id: user.id, status: active ? "active" : "inactive" })).unwrap();
+    } catch (err) {
+      onError?.(typeof err === "string" ? err : "Couldn't change the status. Please try again.");
+      return;
+    }
     dispatch(
       addActivityLog({
-        userId: "usr_admin",
-        userName: "Admin",
+        userId: me?.id ?? "",
+        userName: me?.name ?? "Admin",
         action: active ? "User Activated" : "User Deactivated",
         module: "Security",
         reference: user.username,

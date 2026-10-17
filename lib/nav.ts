@@ -143,7 +143,7 @@ export const NAV_SECTIONS: NavEntry[] = [
     ],
   },
   {
-    label: "Users & Access",
+    label: "User Management",
     icon: HiOutlineShieldCheck,
     children: [
       { label: "Users", href: "/users-access/users" },

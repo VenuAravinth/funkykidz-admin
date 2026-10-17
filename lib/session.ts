@@ -1,14 +1,20 @@
 import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { ErpApiError, ErpNotConfiguredError } from "@/lib/erpApi";
+import { getAuth, isDevLoginUser, toPublicUser } from "@/lib/userStore";
 import type { AuthUser } from "@/types/auth";
 
 export const SESSION_COOKIE_NAME = "fk_session";
 export const MFA_COOKIE_NAME = "fk_mfa";
 const MFA_TTL_SECONDS = 10 * 60;
+// How long a confirmed session is trusted before asking the ERP backend again whether the
+// account is still active and hasn't been signed out (deactivated, password reset, force logout).
+const SESSION_RECHECK_MS = 30 * 1000;
 
 interface SessionPayload {
   user: AuthUser;
+  sessionVersion: number;
   issuedAt: number;
   expiresAt: number;
 }
@@ -20,7 +26,11 @@ export interface MfaPendingPayload {
   expiresAt: number;
 }
 
-const globalForAuth = globalThis as typeof globalThis & { __fkDevAuthSecret?: string };
+const globalForAuth = globalThis as typeof globalThis & {
+  __fkDevAuthSecret?: string;
+  __fkSessionChecks?: Map<string, { user: AuthUser | null; checkedAt: number }>;
+};
+const sessionChecks = (globalForAuth.__fkSessionChecks ??= new Map());
 
 function authSecret(): string {
   const secret = process.env.AUTH_SECRET?.trim();
@@ -77,20 +87,48 @@ function cookieOptions(maxAge: number) {
   };
 }
 
-export async function startSession(user: AuthUser, remember: boolean) {
+export async function startSession(user: AuthUser, remember: boolean, sessionVersion: number) {
   const maxAge = sessionMaxAge(remember);
   const cookieStore = await cookies();
   cookieStore.set(
     SESSION_COOKIE_NAME,
-    sign({ user, issuedAt: Date.now(), expiresAt: Date.now() + maxAge * 1000 } satisfies SessionPayload),
+    sign({ user, sessionVersion, issuedAt: Date.now(), expiresAt: Date.now() + maxAge * 1000 } satisfies SessionPayload),
     cookieOptions(maxAge),
   );
   cookieStore.delete(MFA_COOKIE_NAME);
+  sessionChecks.delete(`${user.id}:${sessionVersion}`);
+}
+
+/** The account as it is now, or null once it was deactivated, deleted or signed out everywhere. */
+async function currentUser(session: SessionPayload): Promise<AuthUser | null> {
+  if (isDevLoginUser(session.user.id)) return session.user;
+  const key = `${session.user.id}:${session.sessionVersion}`;
+  const cached = sessionChecks.get(key);
+  if (cached && Date.now() - cached.checkedAt < SESSION_RECHECK_MS) return cached.user;
+
+  let user: AuthUser | null;
+  try {
+    const found = await getAuth(session.user.id);
+    user = found && found.user.status === "active" && found.auth.sessionVersion === session.sessionVersion ? toPublicUser(found.user) : null;
+  } catch (err) {
+    // ERP backend unreachable: keep the signed session (every data request needs the backend anyway).
+    if (err instanceof ErpNotConfiguredError || (err instanceof ErpApiError && err.status >= 500)) return session.user;
+    throw err;
+  }
+  if (sessionChecks.size > 1000) sessionChecks.clear();
+  sessionChecks.set(key, { user, checkedAt: Date.now() });
+  return user;
+}
+
+/** Makes the next request re-check this user's sessions (after an admin changed the account). */
+export function forgetSessionChecks(userId: string) {
+  for (const key of sessionChecks.keys()) if (key.startsWith(`${userId}:`)) sessionChecks.delete(key);
 }
 
 export async function getSessionUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies();
-  return verify<SessionPayload>(cookieStore.get(SESSION_COOKIE_NAME)?.value)?.user ?? null;
+  const session = verify<SessionPayload>(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  return session && typeof session.sessionVersion === "number" ? currentUser(session) : null;
 }
 
 export async function setMfaPending(payload: Omit<MfaPendingPayload, "expiresAt">) {

@@ -1,17 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userCreateSchema, type UserCreateInput } from "@/features/users/schema";
 import { FormField } from "@/components/molecules/FormField";
+import { FormAlert } from "@/components/molecules/FormAlert";
 import { SwitchField } from "@/components/molecules/SwitchField";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { PasswordInput } from "@/components/molecules/PasswordInput";
 import { Button } from "@/components/atoms/Button";
 import { useAppDispatch, useAppSelector } from "@/stores/hooks";
-import { addUser, selectUsers } from "@/stores/slices/usersSlice";
+import { createUser } from "@/features/users/api";
+import { useUsers } from "@/features/users/hooks";
 import { setStaffHasLogin, selectStaff } from "@/stores/slices/staffSlice";
 import { selectRoles } from "@/stores/slices/rolesSlice";
 import { staffFullName } from "@/types/staff";
@@ -25,7 +28,8 @@ export function UserForm({ defaultStaffId }: UserFormProps) {
   const dispatch = useAppDispatch();
   const roles = useAppSelector(selectRoles);
   const allStaff = useAppSelector(selectStaff);
-  const users = useAppSelector(selectUsers);
+  const { users } = useUsers();
+  const [error, setError] = useState<string | null>(null);
 
   const linkedStaffIds = new Set(users.map((u) => u.staffId).filter(Boolean));
   const availableStaff = allStaff.filter((s) => !s.hasLogin && (!linkedStaffIds.has(s.id) || s.id === defaultStaffId));
@@ -48,22 +52,28 @@ export function UserForm({ defaultStaffId }: UserFormProps) {
     },
   });
 
-  const onSubmit = handleSubmit((input) => {
-    const action = dispatch(addUser(input));
-    if (input.staffId) {
-      dispatch(setStaffHasLogin({ id: input.staffId, hasLogin: true }));
+  const onSubmit = handleSubmit(async (input) => {
+    setError(null);
+    try {
+      const user = await dispatch(createUser(input)).unwrap();
+      if (input.staffId) {
+        dispatch(setStaffHasLogin({ id: input.staffId, hasLogin: true }));
+      }
+      router.push(`/users-access/users/${user.id}`);
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Couldn't create the user. Please try again.");
     }
-    router.push(`/users-access/users/${action.payload.id}`);
   });
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+      {error && <FormAlert variant="error">{error}</FormAlert>}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <FormField id="username" label="Username" error={errors.username?.message} required>
           <Input id="username" placeholder="e.g. arun" hasError={!!errors.username} {...register("username")} />
         </FormField>
 
-        <FormField id="email" label="Email" error={errors.email?.message}>
+        <FormField id="email" label="Email" error={errors.email?.message} required>
           <Input id="email" type="email" placeholder="user@funkykids.in" hasError={!!errors.email} {...register("email")} />
         </FormField>
 

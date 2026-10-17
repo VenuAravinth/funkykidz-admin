@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     case "login":
       return handleLogin(body);
     case "register":
-      return handleRegister(body);
+      return handleRegister();
     case "forgotPassword":
       return handleForgotPassword(body);
     case "logout":
