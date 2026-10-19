@@ -152,4 +152,5 @@ export const signImageUrlsSchema = z.object({
 export const analyzeImageSchema = z.object({
   imageUrl: z.url(),
   hints: z.object({ name: z.string().max(120), category: z.string().max(60), gender: z.string().max(10), description: z.string().max(1000) }).partial().optional(),
+  regenerate: z.boolean().optional(),
 });

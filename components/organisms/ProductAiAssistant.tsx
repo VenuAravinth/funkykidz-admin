@@ -8,25 +8,8 @@ import { FormAlert } from "@/components/molecules/FormAlert";
 import { analyzeProductImage, type AiProductAnalysis } from "@/features/products/api";
 
 // AI help for the product form (Gemini, through the ERP backend): reads the primary product photo
-// and drafts the details — automatically on a new product's first photo, and again on request.
-
-const FIELD_LABELS: Record<string, string> = {
-  name: "Name",
-  shortDescription: "Short description",
-  description: "Description",
-  category: "Category",
-  productType: "Product type",
-  gender: "Gender",
-  color: "Colour",
-  pattern: "Pattern & design",
-  neckType: "Neck type",
-  sleeveType: "Sleeve type",
-  fabric: "Fabric",
-  fit: "Fit",
-  care: "Care",
-  ageGroup: "Age group",
-  occasion: "Style & occasion",
-};
+// and drafts the title, short description, category and visible details — automatically on a new
+// product's first photo (once), and again only when the admin asks. Failures never block saving.
 
 export interface ProductAiAssistantProps {
   /** The primary product photo (stored image URL). */
@@ -53,7 +36,7 @@ export function ProductAiAssistant({ imageUrl, autoAnalyze, onApplyDetails, getH
     setAnalyzing(true);
     setError(null);
     try {
-      const result = await analyzeProductImage(imageUrl, mode === "fill" ? getHints() : undefined);
+      const result = await analyzeProductImage(imageUrl, mode === "fill" ? { hints: getHints() } : { regenerate: true });
       setAnalysis(result);
       onApplyDetails(result, mode);
     } catch (err) {
@@ -74,7 +57,6 @@ export function ProductAiAssistant({ imageUrl, autoAnalyze, onApplyDetails, getH
   }, [imageUrl]);
 
   const mode = analysis ? "replace" : "fill";
-  const reviewList = (analysis?.needsReview ?? []).map((f) => FIELD_LABELS[f] ?? f);
 
   return (
     <div className="mt-5 rounded-2xl border border-champagne-300/70 bg-gradient-to-br from-champagne-100/50 to-white/40 p-4 sm:p-5">
@@ -85,13 +67,18 @@ export function ProductAiAssistant({ imageUrl, autoAnalyze, onApplyDetails, getH
             AI assistant
           </div>
           <div className="mt-1 text-sm text-ink-muted" aria-live="polite">
-            {!imageUrl && "Upload a product photo and AI will draft the name, descriptions and details for you to review."}
+            {!imageUrl && "Upload a product photo and AI will draft the title, short description and visible details for you to review."}
             {imageUrl && analyzing && (
               <span className="flex items-center gap-2 text-ink">
-                <Spinner size={16} /> Reading the photo and writing the product details… (up to a minute)
+                <Spinner size={16} /> Reading the photo and drafting the details… (usually a few seconds)
               </span>
             )}
-            {imageUrl && !analyzing && analysis && "Details filled from the photo. Review and edit them before saving."}
+            {imageUrl && !analyzing && analysis && (
+              <span className="text-emerald-700">
+                Title, short description and visible details filled from the photo. Review and edit them before saving — gender, fabric,
+                size and care are yours to fill.
+              </span>
+            )}
             {imageUrl && !analyzing && !analysis && "Let AI fill in the product details from the primary photo."}
           </div>
         </div>
@@ -114,7 +101,7 @@ export function ProductAiAssistant({ imageUrl, autoAnalyze, onApplyDetails, getH
       {error && (
         <FormAlert variant="error" className="mt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>{error}</span>
+            <span>{error} You can still fill in the details yourself and save.</span>
             <Button type="button" size="sm" variant="secondary" onClick={() => analyze(mode)} disabled={analyzing}>
               Retry
             </Button>
@@ -122,16 +109,6 @@ export function ProductAiAssistant({ imageUrl, autoAnalyze, onApplyDetails, getH
         </FormAlert>
       )}
 
-      {reviewList.length > 0 && !analyzing && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="font-medium text-amber-700">Please confirm:</span>
-          {reviewList.map((label) => (
-            <span key={label} className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

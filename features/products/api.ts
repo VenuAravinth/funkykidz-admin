@@ -122,24 +122,25 @@ export const deleteProduct = createAsyncThunk<string, string, { rejectValue: str
 
 // --- AI helpers (Gemini via the ERP backend) -----------------------------------------------------
 
-export interface AiProductSuggestions {
-  name: string;
-  shortDescription: string;
-  description: string;
-  categoryId: string;
-  category: string;
-  gender: "" | Product["gender"];
-  color: { name: string; hex: string | null } | null;
-  fabric: string;
-  fit: string;
-  care: string;
-  attributes: NonNullable<Product["attributes"]>;
+/** Details Gemini could see in the photo; empty strings when something wasn't clearly visible. */
+export interface AiVisibleAttributes {
+  garmentType: string;
+  colours: string[];
+  colourHex: string | null;
+  pattern: string;
+  sleeves: string;
+  neckline: string;
+  style: string;
 }
 
 export interface AiProductAnalysis {
   model: string;
-  suggestions: AiProductSuggestions;
-  needsReview: string[];
+  title: string;
+  shortDescription: string;
+  categorySuggestion: { id: string; name: string } | null;
+  visibleAttributes: AiVisibleAttributes;
+  /** True when the backend returned this photo's earlier draft instead of calling Gemini again. */
+  cached: boolean;
 }
 
 // Gemini can take up to a minute, far beyond the default request timeout.
@@ -152,6 +153,7 @@ async function aiPost<T>(action: string, payload: object, timeout: number, fallb
   }
 }
 
-export function analyzeProductImage(imageUrl: string, hints?: Record<string, string>) {
-  return aiPost<AiProductAnalysis>(PRODUCT_ENDPOINTS.actions.aiAnalyzeImage, { imageUrl, hints }, 120_000, "Couldn't analyse the photo. Please try again.");
+// `regenerate` asks Gemini again; otherwise the backend may return the photo's earlier draft.
+export function analyzeProductImage(imageUrl: string, { hints, regenerate = false }: { hints?: Record<string, string>; regenerate?: boolean } = {}) {
+  return aiPost<AiProductAnalysis>(PRODUCT_ENDPOINTS.actions.aiAnalyzeImage, { imageUrl, hints, regenerate }, 90_000, "Couldn't analyse the photo. Please try again.");
 }

@@ -305,27 +305,29 @@ export function ProductForm({ product, onDone, onCancel }: ProductFormProps) {
 
   // AI draft → form. "fill" leaves anything the admin already typed alone; "replace" (Regenerate)
   // overwrites every field the AI returned a value for. Blank AI values never clear a field.
+  // Only what's visible in the photo is drafted: gender, fabric, fit, care, age group and the long
+  // description stay with the admin.
   const applyAiDetails = useCallback(
-    ({ suggestions: s }: AiProductAnalysis, mode: "fill" | "replace") => {
+    ({ title, shortDescription, categorySuggestion, visibleAttributes: v }: AiProductAnalysis, mode: "fill" | "replace") => {
       const put = (name: Parameters<typeof setValue>[0], value: string) => {
         if (!value) return;
         if (mode === "fill" && getFieldState(name).isDirty) return;
         setValue(name, value as never, { shouldDirty: true, shouldValidate: true });
       };
-      put("name", s.name);
-      put("shortDescription", s.shortDescription);
-      put("description", s.description);
-      put("categoryId", s.categoryId);
-      put("gender", s.gender);
-      put("fabric", s.fabric);
-      put("fit", s.fit);
-      put("care", s.care);
-      for (const key of productAttributeKeys) put(`attributes.${key}`, s.attributes[key] ?? "");
+      put("name", title);
+      put("shortDescription", shortDescription);
+      put("categoryId", categorySuggestion?.id ?? "");
+      put("attributes.productType", v.garmentType);
+      put("attributes.pattern", v.pattern);
+      put("attributes.sleeveType", v.sleeves);
+      put("attributes.neckType", v.neckline);
+      put("attributes.occasion", v.style);
       // Colour: only fill a first colour that hasn't been named yet (renaming would move stock).
       const first = getValues("colors.0");
-      if (s.color?.name && first && !first.name.trim() && !first.sizes.some((r) => r.id)) {
-        setValue("colors.0.name", s.color.name, { shouldDirty: true, shouldValidate: true });
-        if (s.color.hex) setValue("colors.0.hex", s.color.hex, { shouldDirty: true });
+      const colour = v.colours[0];
+      if (colour && first && !first.name.trim() && !first.sizes.some((r) => r.id)) {
+        setValue("colors.0.name", colour, { shouldDirty: true, shouldValidate: true });
+        if (v.colourHex) setValue("colors.0.hex", v.colourHex, { shouldDirty: true });
       }
     },
     [getFieldState, getValues, setValue],
